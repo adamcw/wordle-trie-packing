@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package lesson2;
+
+message WordleDict {
+  repeated int32 letter = 1;
+}

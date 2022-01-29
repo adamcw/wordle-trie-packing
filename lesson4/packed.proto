@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package lesson4;
+
+message WordleTrie {
+  message WordleNode {
+    int32 letter = 1;
+    repeated WordleNode nodes = 2;
+  }
+  repeated WordleNode nodes = 1;
+}

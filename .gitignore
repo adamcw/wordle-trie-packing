@@ -1,3 +1,7 @@
+common/wordle_*.js
+common/wordle_*.json
+common/*.br
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
