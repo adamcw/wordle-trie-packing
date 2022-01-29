@@ -108,7 +108,7 @@ would be best to transfer the file, then this format could be used to store the
 dictionary in memory (in a world where we want to play Wordle and care about
 saving just under 20KB of memory).
 
-This also suggests a reason Protobufs prefer to remain byte-aligned with their
+This also suggests a reason protobufs prefer to remain byte-aligned with their
 varints. Not only is byte-aligned data easier to deal with, but they also allow
 for structure in the input to remain in the output which can be leveraged by
 compression algorithms on the wire.
@@ -153,7 +153,7 @@ won't waste any more of your life on this attempt.
 ### Trie Protobuf
 
 Protobufs offer reasonable packing of integers, and can represent nested data
-fairly efficiently as well. Converting the trie to Protobuf results in an
+fairly efficiently as well. Converting the trie to protobuf results in an
 uncompressed size of 82,642 bytes and a Brotli compressed size of 19,196 bytes.
 
 Uncompressed this is marginally better than baseline, but it compresses worse,
@@ -163,7 +163,7 @@ basic Super String from Lesson 1.
 ### Trie String
 
 We know that strings seem to compress much better than bitpacked/binary data, so
-what if we just represented the trie in a plaintext format. At this point we
+what if we just represented the trie in a plain-text format. At this point we
 will lose the ability to navigate the trie without parsing the full thing. This
 will make lookups horribly inefficient, but we don't care about that, we just
 want to make things small!
