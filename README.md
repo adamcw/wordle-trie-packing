@@ -282,7 +282,7 @@ of the 1-gram version.
 What is Brotli encoding doing exactly? It's doing a few general-purpose
 compression algorithms, but it's also doing [Huffman coding](https://en.wikipedia.org/wiki/Huffman_coding).
 
-Hufman coding is a process of generating a prefix code known as a huffman code.
+Huffman coding is a process of generating a prefix code known as a Huffman code.
 Put more intuitively, it aims leverages the non-uniform distribution of symbols
 in a string in order to allocate fewer bits to letters that appear a lot, and
 more bits to those than appear infrequently. The code is generated such that no
@@ -291,7 +291,7 @@ variable lengths.
 
 Without Huffman coding, the best we could do per word was 24 bits in Lesson 6.
 
-### Overall 5 Best Letters
+#### Overall 5 Best Letters
 
 Letter | Occurrences
 -|-
@@ -301,7 +301,7 @@ a | 5990
 o | 4438
 r | 4158
 
-### Overall 5 Worst Letters
+#### Overall 5 Worst Letters
 
 Letter | Occurrences
 -|-
@@ -318,7 +318,7 @@ occurs 60 time more often!
 We can further leverage the fact that letter frequencies are different depending
 on their location in a word.
 
-### Position 1: 5 Best Letters
+#### Position 1: 5 Best Letters
 
 Letter | Occurrences
 -|-
@@ -328,7 +328,7 @@ b | 909
 p | 859
 t | 815
 
-### Position 1: 5 Worst Letters
+#### Position 1: 5 Worst Letters
 
 Letter | Occurrences
 -|-
@@ -338,7 +338,7 @@ z | 105
 q | 78
 x | 16
 
-# Position 5: 5 Best Letters
+#### Position 5: 5 Best Letters
 
 Letter | Occurrences
 -|-
@@ -348,7 +348,7 @@ y | 1301
 d | 823
 t | 727
 
-# Position 5: 5 Worst Letters
+#### Position 5: 5 Worst Letters
 
 Letter | Occurrences
 -|-
@@ -436,8 +436,8 @@ characters represented by fewer than five bits, while only 8.4% are more than
 five bits.
 
 A downside to Huffman coding is you also need to include the table mapping each
-huffman code back to the original character. We need five bits to represent the
-character, eight bits to represent the potential bit length of the huffman code,
+Huffman code back to the original character. We need five bits to represent the
+character, eight bits to represent the potential bit length of the Huffman code,
 followed by the Huffman code. We also need to include how many items are in the
 table so we know when to stop searching. Overall, we can encode the five tables
 necessary in 306 bytes, with 5 bytes of additional header information.
@@ -457,7 +457,7 @@ sink and get to work.
 | 2-Gram Trie (Bitpacked, Smart) | 19,340         | 17,067              |
 | Huffman (Bitpacked)            | 27,057         | 27,678              |
 
-# Lesson 8 Continued: The Huffman Coded Bitpacked Smart Trie
+## Lesson 7 Continued: The Huffman Coded Bitpacked Smart Trie
 
 Let's take our trie from earlier, and instead of writing it out using 5 bits per
 character and 5 bits per index, we can instead Huffman code each position, as
