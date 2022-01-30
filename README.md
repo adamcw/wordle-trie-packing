@@ -49,7 +49,9 @@ between [a-z]. You can simply iterate this large string jumping n-characters
 (five in the original Wordle) to find if a word is in the dictionary.
 
 We can therefore remove the square brackets, quotation marks and commas that
-make up the JSON string.
+make up the original [JSON](https://en.wikipedia.org/wiki/JSON) string. Note,
+the original source just contains a JavaScript array, but this is syntactically
+and encoding wise identical to JSON.
 
 Uncompressed this is 53,286 bytes (37.5% saving) and Brotli compresses to 14,639
 bytes (0.4% saving). We can see this format saves little on bandwidth, but would
@@ -116,8 +118,8 @@ compression algorithms on the wire.
 
 ## Lesson 4: Tries
 
-A Trie is essentially a prefix-tree. That is, you can encode the words MOUNT and
-MOUTH as the following tree:
+A [Trie](https://en.wikipedia.org/wiki/Trie) is essentially a prefix-tree. That
+is, you can encode the words MOUNT and MOUTH as the following tree:
 
 ```
              T - H
