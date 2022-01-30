@@ -31,9 +31,9 @@ total source size. Compressed on its own with Brotli encoding, this becomes
 14,704 bytes.
 
 Removing both dictionaries from the source and Brotli to compress it back,
-results in a reduction to 18,461 bytes (46% of original compressed size). This
-means even with the high compression, these dictionaries alone account for half
-the bandwidth.
+results in a reduction to 18,461 bytes (46% of original compressed size), or
+21,451 bytes are dedicated to the dictionaries. This means even with the high
+compression, these dictionaries alone account for half the bandwidth.
 
 ## Problem Statement
 
@@ -480,6 +480,12 @@ categories simultaneously! This is not overly surprising, in that we were able
 to leverage the known structure of the data to implement similar methods to
 Brotli encoding, but eek out extra drops of delicious compression.
 
+On all words (valid words + answers) the final size is 15,577 bytes Brotli
+compressed vs. the original 21,451 bytes (72.6% of baseline). This is a nearly
+27.5% reduction in over-the-wire size! This indicates that the encoding of new
+words is extremely efficient, and we start to do much better than Brotli can
+without leveraging known structure.
+
 Further, lookup time is not bad for the use-case in question (Wordle). With bit
 offsets generated for each first letter, searches can be performed in <1ms on
 average.
@@ -545,3 +551,10 @@ complex custom implementations if you want to hope to beat them.
 | 5-Gram Trie (Bitpacked, Smart) | Six      | 31,971         | 18,204              |
 | Huffman (Bitpacked)            | Seven    | 27,057         | 27,678              |
 | Huffman Trie (Bitpacked, Smart)| Seven    | 13,348 (15.7%) | 13,299 (90.4%)      |
+
+#### All Words
+
+| Attempt                        |  Lesson  | Uncompressed   | Compressed (Brotli) |
+|---------                       | ------   | ------------   | ------------------- |
+| Base                           | Preface  | 103,779        | 21,020              |
+| Huffman Trie (Bitpacked, Smart)| Seven    | 15,559 (15.0%) | 15,577 (74.1%)      |
