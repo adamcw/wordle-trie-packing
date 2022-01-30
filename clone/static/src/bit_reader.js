@@ -7,16 +7,17 @@ class BitReader {
   constructor(array_buffer) {
     this.buf = new Int8Array(array_buffer);
     this.i = 0;
-    this.j = 0;
+    this.j = 7;
   }
 
   read_bit() {
-    const bit = (this.buf[this.i] & (128 >> this.j)) >> (7-this.j);
-    if (this.j === 7) {
-      this.j = 0;
+    const pos = this.j;
+    const bit = (this.buf[this.i] & 1 << pos) >> pos;
+    if (pos === 0) {
+      this.j = 7;
       this.i++;
     } else {
-      this.j++;
+      this.j--;
     }
     return bit;
   }
@@ -27,23 +28,24 @@ class BitReader {
     for (let i = 0; i <= end; ++i) {
       buf += this.read_bit();
     }
-    return buf
+    return buf;
   }
 
   read_int(num_bits, buffer, data_view) {
     const buf = buffer || new ArrayBuffer(Math.ceil(num_bits / 8.));
     const view = data_view || new DataView(buf);
     const end = num_bits - 1;
+
     let offset = 0;
     let value = 0;
     for (let i = 0; i <= end; ++i) {
-      value |= this.read_bit() << end - i;
       const new_offset = Math.floor(i / num_bits)
       if (new_offset != offset) {
         view.setInt8(offset, value, true);
         value = 0;
         offset = new_offset;
       }
+      value |= this.read_bit() << end - i;
     }
     view.setInt8(offset, value, true);
 
@@ -56,7 +58,7 @@ class BitReader {
     } else if (num_bits <= 64) {
       return view.getInt64(0, true);
     } else {
-      throw 'Cannot read_int for more than 64 bits.'
+      throw 'Cannot read_int for more than 64 bits.';
     }
   }
 
@@ -71,4 +73,4 @@ class BitReader {
   }
 }
 
-export { BitReader }
+export { BitReader };

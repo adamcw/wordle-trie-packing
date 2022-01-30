@@ -480,10 +480,24 @@ categories simultaneously! This is not overly surprising, in that we were able
 to leverage the known structure of the data to implement similar methods to
 Brotli encoding, but eek out extra drops of delicious compression.
 
-Further, lookup time is not bad for the use-case in question (Wordle), with an
-unoptimized decoding method in Python taking ~0.065s to decode the entire
-contents into an array containing all of the words. A simple check for whether a
-word is in the array could be done much faster on average.
+Further, lookup time is not bad for the use-case in question (Wordle). With bit
+offsets generated for each first letter, searches can be performed in <1ms on
+average.
+
+In the `clone` directory of this repository you will find a decoder implemented
+in JavaScript which supports reading out a full word array, as well as doing
+in-place searches for words. Offset generation can be performed explictly on
+load (~20-35ms), or can be performed lazily as words are searched for. Explicit
+generation is likely ideal for Wordle clones, as you want to avoid any jank on
+submit to check if a word exists. That said, even on low-end hardware,
+lazy-loaded searches shouldn't generate jank.
+
+If you only care about over-the-wire benefits (which is probably all you should
+care about) then you can read out the words to an array in memory. The
+`includes` method in JavaScript is at least an order of magnitude faster on
+lookups on a dictionary this size, despite being O(n). Words generally don't
+share large prefixes due to their length, so most words can be rejected in just
+a couple of char comparisons.
 
 ## Did We Succeed?
 

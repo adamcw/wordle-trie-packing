@@ -176,4 +176,4 @@ class WordleDict {
   }
 }
 
-export { WordleDict }
+export { WordleDict };

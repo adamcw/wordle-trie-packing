@@ -179,7 +179,7 @@ if __name__ == "__main__":
     return x
 
   def gram_2(x):
-    return [x[:2], x[2:4], x[4:]]
+      return [x[0], x[1], x[2], x[3:]]
 
   func = gram_1
   use_trie = True
