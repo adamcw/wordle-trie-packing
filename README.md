@@ -21,25 +21,19 @@ The Wordle source on 2022-01-29 was served
 uncompressed is 177,553 bytes of minified JavaScript (60,303 bytes gzipped).
 
 In this source code, there exists two arrays. One for valid dictionary words,
-and one with answers. There are 2,315 answers and 10,657 valid dictionary words.
-The answers have been omitted from this repository 1) to at least pretend to
-protect the integrity of the game 2) it's not that wise to send ~6 years worth
-of answers with every request when only one is needed anyway.
+and one with answers. There are 2,315 answers and 10,657 valid dictionary words,
+both sets are combined in the game to form a super-dictionary of 12,972 words.
+The answers have been omitted from this repository/analysis to at least pretend
+to protect the integrity of the game.
 
 The valid dictionary words take up 85,258 bytes uncompressed, or ~48% of the
 total source size. Compressed on its own with Brotli encoding, this becomes
 14,704 bytes.
 
-However, if you remove the valid dictionary words, and Brotli
-compress the source it drops to 33,430 bytes. This would represent that the
-"cost" of the extra valid dictionary words is 6,482 bytes. This
-encoding is sort of cheated, as mentioned sending the full answers dictionary
-doesn't make much sense if we're size conscious, and the answers dictionary
-makes compressing the valid words dictionary much easier.
-
-Removing both dictionaries from the source and Brotli compressing it, results in
-only 18,461 bytes (46% of compressed size). This means even with high
-compression, these dictionaries alone account for half the bandwidth.
+Removing both dictionaries from the source and Brotli to compress it back,
+results in a reduction to 18,461 bytes (46% of original compressed size). This
+means even with the high compression, these dictionaries alone account for half
+the bandwidth.
 
 ## Problem Statement
 
