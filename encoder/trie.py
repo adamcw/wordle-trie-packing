@@ -1,7 +1,7 @@
 class Trie:
-  def __init__(self, words, word_func=None):
+  def __init__(self, words, word_func=None, variable_length=False):
     self.trie = {}
-    for word in words:
+    for i, word in enumerate(words):
       node = self.trie
       if word_func:
         word = word_func(word)
@@ -9,6 +9,8 @@ class Trie:
         if letter not in node:
           node[letter] = {}
         node = node[letter]
+      if variable_length:
+        node['END'] = {}
 
   def count_children(self):
     children = []

@@ -62,17 +62,12 @@ class WordleDict {
    */
   contains(word) {
     const first_letter = word[0];
-    if (first_letter in this.offsets) {
-      this.bs.i = this.offsets[first_letter][0];
-      this.bs.j = this.offsets[first_letter][1];
+    const idx = this._find_offset(first_letter);
+    if (idx === null) {
       return this._search_payload(word, 0, '');
     }
-
-    this.bs.i = this._i;
-    this.bs.j = this._j;
     const num_symbols = this.num_symbols;
-
-    for (let i = 0; i < num_symbols; ++i) {
+    for (let i = idx; i < num_symbols - idx; ++i) {
       // Cache offset for later searches.
       this.offsets[this.symbols[i]] = [this.bs.i, this.bs.j];
       if (this._search_payload(word, 0, '')) {
@@ -88,7 +83,6 @@ class WordleDict {
     return false;
   }
 
-
   /*
    * Generate all offsets to speed up searches.
    *
@@ -97,6 +91,66 @@ class WordleDict {
    */
   generate_offsets() {
     this.contains('zzzzzzzzzzzzzzzz')
+  }
+
+  word(index) {
+    this.bs.i = this._i;
+    this.bs.j = this._j;
+    const num_symbols = this.num_symbols;
+    let count = 0;
+    for (let i = 0; i < num_symbols; ++i) {
+      this.offsets[this.symbols[i]] = [this.bs.i, this.bs.j];
+      count = this._specific_payload(index, count, 0, '');
+      if (typeof count === "string") {
+        return count;
+      }
+    }
+    return false;
+  }
+
+  random_word(seed) {
+    const num_symbols = this.num_symbols;
+    const index = this._random(seed) % num_symbols;
+    const first_letter = this.symbols[index];
+
+    const idx = this._find_offset(first_letter);
+    if (idx === null) {
+      return this._random_payload(seed, 0, '');
+    }
+
+    for (let i = idx; i < num_symbols - idx; ++i) {
+      this.offsets[this.symbols[i]] = [this.bs.i, this.bs.j];
+      const word = this._random_payload(seed, 0, '');
+      if (i === index) {
+        return word;
+      }
+    }
+    return false;
+  }
+
+  _find_offset(letter) {
+    const num_offsets = Object.keys(this.offsets).length;
+    if (num_offsets === 0) {
+      return 0;
+    }
+
+    if (letter in this.offsets) {
+      this.bs.i = this.offsets[letter][0];
+      this.bs.j = this.offsets[letter][1];
+      return null;
+    }
+
+    const idx = num_offsets - 1;
+    this.bs.i = this.offsets[this.symbols[idx]][0];
+    this.bs.j = this.offsets[this.symbols[idx]][1];
+    return idx;
+  }
+
+  _random(a) {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0);
   }
 
   _read_header(verbose) {
@@ -173,6 +227,55 @@ class WordleDict {
       }
     }
     return false;
+  }
+
+  _random_payload(seed, depth, prefix) {
+    let num_children = 0;
+    if (depth < this.table_depth) {
+      num_children = this.bs.read_huff(this.child_table);
+    }
+    const symbol = this.bs.read_huff(this.tables[depth]);
+    const decoded = this.symbols[symbol];
+    if (depth == this.table_depth) {
+      return prefix + decoded;
+    }
+    const new_depth = depth + 1;
+    const new_prefix = prefix + decoded;
+    const index = this._random(seed + depth + 1) % num_children;
+    let words = [];
+    for (let i = 0; i < num_children; ++i) {
+      const word = this._random_payload(seed, new_depth, new_prefix);
+      if (i === index) {
+        words.push(word);
+      }
+    }
+    return words;
+  }
+
+  _specific_payload(index, count, depth, prefix) {
+    let num_children = 0;
+    if (depth < this.table_depth) {
+      num_children = this.bs.read_huff(this.child_table);
+    }
+    const symbol = this.bs.read_huff(this.tables[depth]);
+    const decoded = this.symbols[symbol];
+    if (depth == this.table_depth) {
+      count++;
+      if (count === index) {
+        return prefix + decoded;
+      }
+      return count;
+    }
+
+    const new_depth = depth + 1;
+    const new_prefix = prefix + decoded;
+    for (let i = 0; i < num_children; ++i) {
+      count = this._specific_payload(index, count, new_depth, new_prefix);
+      if (typeof count === "string") {
+        return count;
+      }
+    }
+    return count;
   }
 }
 

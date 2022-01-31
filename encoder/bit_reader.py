@@ -33,6 +33,9 @@ class BitReader:
       if buf in table.keys():
         return table[buf]
       i += 1
+      #if i > max(map(len, table.keys())):
+      #  print(i, buf, table.keys())
+      #  sys.exit()
 
   def __len__(self):
     return len(self.bits)

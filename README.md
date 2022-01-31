@@ -520,8 +520,8 @@ the uncompressed gains were good with bitpacked tries, but they generally made
 over-the-wire more expensive and in the real world that's what costs you money.
 
 The Huffman Coded Bitpacked Smart Trie achieves all of our goals handily,
-achieving a 10% over-the-wire saving, while also having a substantially smaller
-memory footprint.
+achieving a 10%-25% over-the-wire saving, while also having a substantially
+smaller memory footprint.
 
 Overall, this is an interesting investigation into the various ways one can pack
 data, and goes to show that modern techniques like Brotli are incredibly
@@ -557,4 +557,53 @@ complex custom implementations if you want to hope to beat them.
 | Attempt                        |  Lesson  | Uncompressed   | Compressed (Brotli) |
 |---------                       | ------   | ------------   | ------------------- |
 | Base                           | Preface  | 103,779        | 21,020              |
-| Huffman Trie (Bitpacked, Smart)| Seven    | 15,559 (15.0%) | 15,577 (74.1%)      |
+| Huffman Trie (Bitpacked, Smart)| Seven    | 15,599 (15.0%) | 15,577 (74.1%)      |
+
+#### HelloWordl Dictionary
+
+[hello wordl](https://hellowordl.net) is a Wordle clone that supports games
+between 2 and 11 letters. Like Wordle they bundle their dictionary as part of
+their JavaScript source, with the full uncompressed dictionary being well over
+[2.5MB](https://github.com/lynn/hello-wordl/blob/main/src/dictionary.json).
+
+Unlike Wordle, hello wordl uses gzip encoding, rather than Brotli which performs
+quite a lot worse on text like this.
+
+The Huffman trie outperforms both gzip and Brotli, with an uncompressed size of
+353,615 bytes (13.09% of baseline), 341,817 bytes gzipped (68.26% of baseline)
+and 341,292 bytes Brotli encoded (88.25%) of baseline. Here we see an 11.75%
+reduction over if hello wordl opted to leverage Brotli encoding instead.
+
+This highlights a weakness in being super overly specific in an encoding scheme.
+Because we highly leveraged the specific-length nature of the Wordl
+dictionaries, we don't have a way to easily leverage the high overlap of words
+between words of different lengths.
+
+Allowing variable lengths in our trie structure would require removing the
+"smart" optimization, and instead using the length 0 children as a stop.
+Further, we'd need to add one bit to every trie node to indicate whether the
+current word terminates despite having children, otherwise we have no way to
+decode "transport" if "transportation" is in the trie.
+
+As a result, encoding the trie with variable length becomes bigger uncompressed
+at 359,014 bytes. However, the extra bits add some structure that Brotli can
+further add optimization to, bringing the Brotli compressed size to 295,713
+bytes (with gzip being 317,268 bytes).
+
+| Attempt  | Uncompressed   | Compressed (gzip) | Compressed (Brotli) |
+|--------- | ------   | ------------   | ------------------- |
+Baseline | 2,700,926 | 500,752 | 386,721
+Huffman Trie N=2 | 202 | 242 | 207
+Huffman Trie N=3 | 1,024 | 1,064 | 1,029
+Huffman Trie N=4 | 4,283 | 4,323 | 4,288
+Huffman Trie N=5 | 15,597 | 15,618 | 15,578
+Huffman Trie N=6 | 24,435 | 24,249 | 24,228
+Huffman Trie N=7 | 44,344 | 43,329 | 43,314
+Huffman Trie N=8 | 65,421 | 63,434 | 63,343
+Huffman Trie N=9 | 75,094 | 72,500 | 72,253
+Huffman Trie N=10 | 66,724 | 63,751 | 63,689
+Huffman Trie N=11 | 56,491 | 53,307 | 53,363
+Huffman Trie Total | 353,615 | 341,817 | 341,292
+ | 13.09% | 68.26% | 88.25%
+Variable Huffman Trie | 359,014 | 317,268 | 295,713
+ | 13.29% | 63.36% | 76.47%
