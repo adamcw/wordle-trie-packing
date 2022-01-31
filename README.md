@@ -43,15 +43,25 @@ specific nature of the Wordle dictionary.
 
 ## Lesson 1: JSON is Big
 
+By including the dictionary in their JavaScript source, this is equivalent to
+storing the dictionary in [JSON](https://en.wikipedia.org/wiki/JSON) (JavaScript
+Object Notation) format.
+
+```
+['worda', wordb', 'wordc']
+```
+
 All words in Wordle are the same length. This means that you can store them in
 one large contiguous string. Further, all characters are lowercase and only
 between [a-z]. You can simply iterate this large string jumping n-characters
 (five in the original Wordle) to find if a word is in the dictionary.
 
 We can therefore remove the square brackets, quotation marks and commas that
-make up the original [JSON](https://en.wikipedia.org/wiki/JSON) string. Note,
-the original source just contains a JavaScript array, but this is syntactically
-and encoding wise identical to JSON.
+make up the original JSON string.
+
+```
+wordawordbwordc
+```
 
 Uncompressed this is 53,286 bytes (37.5% saving) and Brotli compresses to 14,639
 bytes (0.4% saving). We can see this format saves little on bandwidth, but would
@@ -74,8 +84,14 @@ encoded. Compared to the super-string in Lesson 1, this is three bytes worse
 uncompressed, and 337 bytes worse compressed.
 
 Uncompressed, this makes sense, the packed protobuf format still represents an
-integer with at least eight bits, this is the same size as a char. The extra
-three bytes will be the header for the protobuf.
+integer with [at least eight
+bits](https://developers.google.com/protocol-buffers/docs/encoding#varints),
+this is the same size as a char. The extra three bytes will be the header for
+the protobuf.
+
+```
+abc -> 0000 0000 0000 0001 0000 0010
+```
 
 This means, if we want to do better uncompressed, we need to do better than 8
 bits per character. If we want to do better compressed, we're going to have to
@@ -88,11 +104,16 @@ Brotli.
 | Super String                   | 53,286       | 14,639              |
 | Protobuf String                | 53,289       | 14,639              |
 
-## Lesson 3: Bit-Packing
+## Lesson 3: Bitpacking
 
-The numbers 0-26 and be represented with only five bits, rather than eight, a
-37.5% size reduction. If we convert each character to a number, then pack these
-into a binary format this way, we can get a notable uncompressed size saving.
+The numbers 0-25 can be represented with only five bits (`2^5 = 32`), rather
+than eight, a 37.5% size reduction. If we convert each character to an integer,
+then pack these into a binary format this way, we can get a notable uncompressed
+size saving.
+
+```
+abc -> 00000 00001 00010
+```
 
 This produces a binary format that is 33,304 bytes uncompressed (37.5% saving
 over a super string, and 60.9% saving over the original JSON.
@@ -107,7 +128,15 @@ saving just under 20KB of memory).
 This also suggests a reason protobufs prefer to remain byte-aligned with their
 varints. Not only is byte-aligned data easier to deal with, but they also allow
 for structure in the input to remain in the output which can be leveraged by
-compression algorithms on the wire.
+compression algorithms over-the-wire (the data as represented while in transit
+between two places).
+
+Compression differs from general bitpacking in that compression generally needs
+to be uncompressed for the data to be useful. In comparison, bitpacking will
+take a data structure and just condense how many bits are required to represent
+it. This may slow down the use of the data structure due to having to unpack as
+you go, but it doesn't require a full decompress step before any action on the
+data can be taken.
 
 | Attempt                        | Uncompressed | Compressed (Brotli) |
 |---------                       | ------------ | ------------------- |
@@ -141,8 +170,7 @@ letters overall, than we add in upkeep needing to track the suffix nodes.
 
 As discussed in Lesson 1, JSON is very inefficient in terms of size. Encoding
 the trie into JSON resulted in a filesize of 170,785 bytes uncompressed and
-17,070 bytes Brotli encoded. Uncompressed it is more than tw:w
-ice as big as the
+17,070 bytes Brotli encoded. Uncompressed it is more than twice as big as the
 original JSON representation, and slightly larger when compressed as well. I
 won't waste any more of your life on this attempt.
 
@@ -167,7 +195,7 @@ want to make things small!
 MOUTH and MOUNT would be represented as follows:
 
 ```
-1M1O2U1T0H1N1T
+1M1O2U1T0H1N0T
 ```
 
 Each node writes down how many children it has, followed by the letter. To
@@ -180,6 +208,10 @@ in an order proportional to their probability at each level.
 This produces uncompressed 43,917 bytes and 15,584 bytes Brotli compressed.
 However, we can leverage the fact we know all strings are the same length and
 omit and of the 0s on the tail nodes.
+
+```
+1M1O2U1TH1NT
+```
 
 This "Smart" approach, produces 32,260 bytes uncompressed, and 14,562 Brotli
 compressed. Making this approach both smaller than the original bitpacked
@@ -480,11 +512,21 @@ categories simultaneously! This is not overly surprising, in that we were able
 to leverage the known structure of the data to implement similar methods to
 Brotli encoding, but eek out extra drops of delicious compression.
 
+| Attempt (Valid Words)          |  Lesson  | Uncompressed   | Compressed (Brotli) |
+|---------                       | ------   | ------------   | ------------------- |
+| Base                           | Preface  | 85,258         | 14,704              |
+| Huffman Trie (Bitpacked, Smart)| Seven    | 13,348 (15.7%) | 13,299 (90.4%)      |
+
 On all words (valid words + answers) the final size is 15,577 bytes Brotli
-compressed vs. the original 21,451 bytes (72.6% of baseline). This is a nearly
+compressed vs. the original 21,020 bytes (74.1% of baseline). This is a nearly
 27.5% reduction in over-the-wire size! This indicates that the encoding of new
 words is extremely efficient, and we start to do much better than Brotli can
 without leveraging known structure.
+
+| Attempt (Valid+Answer Words)   |  Lesson  | Uncompressed   | Compressed (Brotli) |
+|---------                       | ------   | ------------   | ------------------- |
+| Base                           | Preface  | 103,779        | 21,020              |
+| Huffman Trie (Bitpacked, Smart)| Seven    | 15,599 (15.0%) | 15,577 (74.1%)      |
 
 Further, lookup time is not bad for the use-case in question (Wordle). With bit
 offsets generated for each first letter, searches can be performed in <1ms on
@@ -504,6 +546,132 @@ care about) then you can read out the words to an array in memory. The
 lookups on a dictionary this size, despite being O(n). Words generally don't
 share large prefixes due to their length, so most words can be rejected in just
 a couple of char comparisons.
+
+## Lesson 8: Tries Revisited
+
+Another programmer, [Tab Atkins Jr.](https://gist.github.com/tabatkins) also
+took a look at this problem and [used
+tries](https://gist.github.com/tabatkins/c4b4e3c20d1b2663670d07b73f2623e8) to
+compress the Wordle dictionary.
+
+Here, Tab takes an alternate approach to how you can represent a trie. Instead
+of tracking the character and its number of children, they instead use a
+terminating separator which allows the decoder to know when to pop the stack.
+
+Further, they don't do the tree to the full depth of five, but instead stop at
+depth four and just list all two character suffixes. This acts to greatly reduce
+the number of terminating characters needed, which is the biggest space-consumer
+with this method.
+
+In comparison to the representation in Lessons 4-8, it trades off needing to
+track the size of each early node, with adding data to the end of every
+terminating node.
+
+Tab quotes compression numbers on his GitHub gist on the full all words
+dictionary, so we've compared here similarly. He mentions that characters could
+be packed in six bits, and the separators in four -- however, you can pack the
+characters in five bits and the separator in four. The binary sequence `11110`
+represents `30` and hence a decoder can pop whenever a sequence of `1111` is
+found, or otherwise read one more bit to get the letter at that position.
+
+Further, we can apply Huffman coding to the plain-text string instead, since we
+have so many terminating characters, the code dedicates the fewest bits to it.
+Finally, we can do per-position Huffman codes for each letter, artificially
+inserting a lot of terminating characters into each input string so that the
+Huffman code of each position accounts for terminating characters.
+
+Brotli compressed, the Tab Atkins Jr approach is smaller than the Huffman Trie in
+Lesson 7. This makes it optimal for bandwidth conservation purposes, but it ends
+up being quite large in-memory. Attempting to bit-pack or Huffman encode it only
+reduced what Brotli encoding could achieve, and as such they all performed worse
+on bandwidth. They also all performed worse than the Huffman Trie when
+uncompressed making them inferior (\*\*as a result, the numbers quoted below
+don't even include the Huffman tables themselves as it wasn't worth the effort).
+
+This makes the plain-text trie the best way to transmit the Wordle dictionary if
+your server can leverage Brotli compression. It also greatly simplifies the
+decoding process on the other end and there is no bitpacking or Huffman tables
+to decode and leverage.
+
+So why does this perform so well, and why doesn't Huffman coding compete? Brotli
+compression utilizes more than just Huffman coding, it also uses [context
+modelling](https://en.wikipedia.org/wiki/Context_model) and
+[LZ77](https://en.wikipedia.org/wiki/LZ77_and_LZ78) compression. Put simply
+it takes a content-independent approach, and attempts to pull commonly repeating
+patterns from the text and represent them with a smaller representation. Think
+of it like Huffman coding, but it analyzes the text to pick variable-length
+n-grams and aims to optimize the set of n-grams that will produce the smallest
+file.
+
+One potential downside of this representation is that it makes it impossible to
+pull a random word from the trie without decoding it completely, unless you also
+know how many words are in the trie (at which point you can pick a random value
+between 1 and N then seek, counting your total words until you hit N).
+
+| Attempt  | Uncompressed   | Compressed (gzip) | Compressed (Brotli) |
+|--------- | ------   | ------------   | ------------------- |
+| tabatkins trie | 32,112 | 15,808 | 14,545
+| tabatkins trie (Bitpacked) | 19,685 | 18,470 | 18,562 |
+| tabatkins trie (Huffman)\*\* | 16,989 | 16,814 | 16,718 |
+| tabatkins trie (Huffman, Positional)\*\* | 16,845 | 16,408 | 16,489 |
+
+## Lesson 9: Variable Length Dictionaries
+
+[hello wordl](https://hellowordl.net) is a Wordle clone that supports games
+between 2 and 11 letters. Like Wordle they bundle their dictionary as part of
+their JavaScript source, with the full uncompressed dictionary being well over
+[2.5MB](https://github.com/lynn/hello-wordl/blob/main/src/dictionary.json).
+
+Unlike Wordle, hello wordl uses gzip encoding, rather than Brotli which performs
+quite a lot worse on text like this.
+
+The Huffman trie outperforms both gzip and Brotli, with an uncompressed size of
+353,615 bytes (13.09% of baseline), 341,817 bytes gzipped (68.26% of baseline)
+and 341,292 bytes Brotli encoded (88.25%) of baseline. Here we see an 11.75%
+reduction over if hello wordl opted to leverage Brotli encoding instead.
+
+This highlights a weakness in being super overly specific in an encoding scheme.
+Because we highly leveraged the specific-length nature of the Wordl
+dictionaries, we don't have a way to easily leverage the high overlap of words
+between words of different lengths.
+
+Allowing variable lengths in our trie structure would require removing the
+"smart" optimization, and instead using the length 0 children as a stop.
+Further, we'd need to add one bit to every trie node to indicate whether the
+current word terminates despite having children, otherwise we have no way to
+decode "transport" if "transportation" is in the trie.
+
+As a result, encoding the trie with variable length becomes bigger uncompressed
+at 359,014 bytes. However, the extra bits add some structure that Brotli can
+further add optimization to, bringing the Brotli compressed size to 295,713
+bytes (with gzip being 317,268 bytes).
+
+Ultimately, however, the independent tables are most likely to save the most
+bandwidth and memory. Few users, if any, will play all 2-11 versions of hello
+wordl in one session. As a result, sending the full dictionary for all 2-11 is a
+waste. Therefore, it's likely optimal to send the dictionaries as-needed, or
+bundling common ones together such as 2-6. The variable-length Huffman trie is
+less than 50,000 bytes smaller than the fixed length ones combined. As such, if
+the user doesn't play any one of N=8-11 that alone has saved more bandwidth than
+having used the "more compressed" variable-length version.
+
+| Attempt  | Uncompressed   | Compressed (gzip) | Compressed (Brotli) |
+|--------- | ------   | ------------   | ------------------- |
+Baseline | 2,700,926 | 500,752 | 386,721
+Huffman Trie N=2 | 202 | 242 | 207
+Huffman Trie N=3 | 1,024 | 1,064 | 1,029
+Huffman Trie N=4 | 4,283 | 4,323 | 4,288
+Huffman Trie N=5 | 15,597 | 15,618 | 15,578
+Huffman Trie N=6 | 24,435 | 24,249 | 24,228
+Huffman Trie N=7 | 44,344 | 43,329 | 43,314
+Huffman Trie N=8 | 65,421 | 63,434 | 63,343
+Huffman Trie N=9 | 75,094 | 72,500 | 72,253
+Huffman Trie N=10 | 66,724 | 63,751 | 63,689
+Huffman Trie N=11 | 56,491 | 53,307 | 53,363
+Huffman Trie Total | 353,615 | 341,817 | 341,292
+| | 13.09% | 68.26% | 88.25%
+Variable Huffman Trie | 359,014 | 317,268 | 295,713
+| | 13.29% | 63.36% | 76.47%
 
 ## Did We Succeed?
 
@@ -559,36 +727,14 @@ complex custom implementations if you want to hope to beat them.
 | Base                           | Preface  | 103,779        | 21,020              |
 | Huffman Trie (Bitpacked, Smart)| Seven    | 15,599 (15.0%) | 15,577 (74.1%)      |
 
+| Attempt  | Uncompressed   | Compressed (gzip) | Compressed (Brotli) |
+|--------- | ------   | ------------   | ------------------- |
+| tabatkins trie | 32,112 | 15,808 | 14,545\*\*
+| tabatkins trie (Bitpacked) | 19,685 | 18,470 | 18,562 |
+| tabatkins trie (Huffman)\*\* | 16,989 | 16,814 | 16,718 |
+| tabatkins trie (Huffman, Positional)\*\* | 16,845 | 16,408 | 16,489 |
+
 #### HelloWordl Dictionary
-
-[hello wordl](https://hellowordl.net) is a Wordle clone that supports games
-between 2 and 11 letters. Like Wordle they bundle their dictionary as part of
-their JavaScript source, with the full uncompressed dictionary being well over
-[2.5MB](https://github.com/lynn/hello-wordl/blob/main/src/dictionary.json).
-
-Unlike Wordle, hello wordl uses gzip encoding, rather than Brotli which performs
-quite a lot worse on text like this.
-
-The Huffman trie outperforms both gzip and Brotli, with an uncompressed size of
-353,615 bytes (13.09% of baseline), 341,817 bytes gzipped (68.26% of baseline)
-and 341,292 bytes Brotli encoded (88.25%) of baseline. Here we see an 11.75%
-reduction over if hello wordl opted to leverage Brotli encoding instead.
-
-This highlights a weakness in being super overly specific in an encoding scheme.
-Because we highly leveraged the specific-length nature of the Wordl
-dictionaries, we don't have a way to easily leverage the high overlap of words
-between words of different lengths.
-
-Allowing variable lengths in our trie structure would require removing the
-"smart" optimization, and instead using the length 0 children as a stop.
-Further, we'd need to add one bit to every trie node to indicate whether the
-current word terminates despite having children, otherwise we have no way to
-decode "transport" if "transportation" is in the trie.
-
-As a result, encoding the trie with variable length becomes bigger uncompressed
-at 359,014 bytes. However, the extra bits add some structure that Brotli can
-further add optimization to, bringing the Brotli compressed size to 295,713
-bytes (with gzip being 317,268 bytes).
 
 | Attempt  | Uncompressed   | Compressed (gzip) | Compressed (Brotli) |
 |--------- | ------   | ------------   | ------------------- |
