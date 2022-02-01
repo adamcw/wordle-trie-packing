@@ -20,7 +20,7 @@ The Wordle source on 2022-01-29 was served
 [Brotli](https://en.wikipedia.org/wiki/Brotli) encoded in 39,912 bytes, which
 uncompressed is 177,553 bytes of minified JavaScript (60,303 bytes gzipped).
 
-In this source code, there exists two arrays. One for valid dictionary words,
+In this source code, there exists two arrays -- one for valid dictionary words,
 and one with answers. There are 2,315 answers and 10,657 valid dictionary words,
 both sets are combined in the game to form a super-dictionary of 12,972 words.
 The answers have been omitted from this repository/analysis to at least pretend
@@ -39,7 +39,7 @@ compression, these dictionaries alone account for half the bandwidth.
 
 How small can we represent the valid dictionary words, and can we beat Brotli
 compression by attempting to make a custom file format that leverages the very
-specific nature of the Wordle dictionary.
+specific nature of the Wordle dictionary?
 
 [More information on compression and Brotli](https://blog.cloudflare.com/results-experimenting-brotli/).
 
@@ -129,7 +129,7 @@ dictionary in memory (in a world where we want to play Wordle and care about
 saving just under 20KB of memory).
 
 This also suggests a reason protobufs prefer to remain byte-aligned with their
-varints. Not only is byte-aligned data easier to deal with, but they also allow
+varints. Not only are byte-aligned data easier to deal with, but they also allow
 for structure in the input to remain in the output which can be leveraged by
 compression algorithms over-the-wire (the data as represented while in transit
 between two places).
@@ -156,9 +156,9 @@ M - O - U -
 
 Each letter needs to track both itself, as well as a list of suffixes.
 Therefore, a trie can be a very expensive data structure and is generally used
-for more efficient lookup of if a word exists, than to save memory.
+for more efficient lookup of if a word exists than to save memory.
 
-We can utilize some knowledge of the structure to try and pack it more
+We can utilize some knowledge of the structure to try to pack it more
 efficiently though, and see if we can save more from reducing the number of
 letters overall, than we add in upkeep needing to track the suffix nodes.
 
@@ -176,14 +176,14 @@ Protobufs offer reasonable packing of integers, and can represent nested data
 fairly efficiently as well. Converting the trie to protobuf results in an
 uncompressed size of 82,642 bytes and a Brotli compressed size of 19,196 bytes.
 
-Uncompressed this is marginally better than baseline, but it compresses worse,
+Uncompressed, this is marginally better than baseline, but it compresses worse,
 and performs worse than substantially easier-to-work-with solutions such as a
 basic Super String from Lesson 1.
 
 ### Trie (String)
 
 We know that strings seem to compress much better than bitpacked/binary data, so
-what if we just represented the trie in a plain-text format. At this point we
+what if we just represented the trie in a plain-text format? At this point we
 will lose the ability to navigate the trie without parsing the full thing. This
 will make lookups horribly inefficient, but we don't care about that, we just
 want to make things small!
@@ -203,7 +203,7 @@ in an order proportional to their probability at each level.
 
 This produces uncompressed 43,917 bytes and 15,584 bytes Brotli compressed.
 However, we can leverage the fact we know all strings are the same length and
-omit and of the 0s on the tail nodes.
+omit all of the 0s on the tail nodes.
 
 ```
 1M1O2U1TH1NT
@@ -245,7 +245,7 @@ With and without the "Smart" modification, this method is 2.5% worse or 4.3%
 better than baseline when Brotli encoded.
 
 The non-"Smart" encoding wins the smallest when Brotli encoded, and the "Smart"
-encoding with the smallest when uncompressed.
+encoding wins the smallest when uncompressed.
 
 This suggests that the extra zero-bits in the non-"Smart" version must add more
 structure for the Brotli encoder to leverage for a better compression ratio.
@@ -278,7 +278,7 @@ and aa-zz).
 We can similarly do 3-gram with two letters and three letters, a 4-gram with
 one letter and four letters, and finally a 5-gram.
 
-A 5-gram simply replaces every word with a 24 bit number representing it, this
+A 5-gram simply replaces every word with a 24 bit number representing it; this
 is one bit less expensive per word than encoding each character individually as
 five bits. Notably, this also seems to compress substantially better than the
 bitpacking we did in Lesson 3.
@@ -307,10 +307,10 @@ What is Brotli encoding doing exactly? It's doing a few general-purpose
 compression algorithms, but it's also doing [Huffman coding](https://en.wikipedia.org/wiki/Huffman_coding).
 
 Huffman coding is a process of generating a prefix code known as a Huffman code.
-Put more intuitively, it aims leverages the non-uniform distribution of symbols
-in a string in order to allocate fewer bits to letters that appear a lot, and
-more bits to those than appear infrequently. The code is generated such that no
-code overlaps a prefix with another code, allowing for unambiguous decoding of
+Put more intuitively, it leverages the non-uniform distribution of symbols in a
+string in order to allocate fewer bits to letters that appear a lot, and more
+bits to those than appear infrequently. The code is generated such that no code
+overlaps a prefix with another code, allowing for unambiguous decoding of
 variable lengths.
 
 Without Huffman coding, the best we could do per word was 24 bits in Lesson 6.
@@ -498,8 +498,8 @@ Num Children | Huffman Code | Occurrences | %
 5 | 001101 | 175 | 1.6%
 
 Writing the trie is then simply the same as writing the non-coded trie, but each
-number of children and character is looked up in their respective Huffman tables
-first.
+of the numbers of children and characters are looked up in their respective
+Huffman tables first.
 
 Doing this gives rather fantastic results! 13,348 bytes uncompressed (15.7% of
 baseline), and 13,299 Brotli encoded (90.4% of baseline). This is a nearly 10%
@@ -604,7 +604,7 @@ Variable Huffman Trie | 359,014 | 317,268 | 295,713
 ## Lesson 9: Tries Revisited and Terminated.
 
 Another programmer, [Tab Atkins Jr.](https://gist.github.com/tabatkins) also
-took a look at this problem and [used
+took a look at this problem and also decided to [use
 tries](https://gist.github.com/tabatkins/c4b4e3c20d1b2663670d07b73f2623e8) to
 compress the Wordle dictionary.
 
