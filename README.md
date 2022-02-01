@@ -41,11 +41,14 @@ How small can we represent the valid dictionary words, and can we beat Brotli
 compression by attempting to make a custom file format that leverages the very
 specific nature of the Wordle dictionary.
 
+[More information on compression and Brotli](https://blog.cloudflare.com/results-experimenting-brotli/).
+
 ## Lesson 1: JSON is Big
 
 By including the dictionary in their JavaScript source, this is equivalent to
 storing the dictionary in [JSON](https://en.wikipedia.org/wiki/JSON) (JavaScript
-Object Notation) format.
+Object Notation) format. This format is plain-text, and thus ends up being very
+verbose, especially for a dictionary of Wordle words.
 
 ```
 ['worda', wordb', 'wordc']
@@ -130,13 +133,6 @@ varints. Not only is byte-aligned data easier to deal with, but they also allow
 for structure in the input to remain in the output which can be leveraged by
 compression algorithms over-the-wire (the data as represented while in transit
 between two places).
-
-Compression differs from general bitpacking in that compression generally needs
-to be uncompressed for the data to be useful. In comparison, bitpacking will
-take a data structure and just condense how many bits are required to represent
-it. This may slow down the use of the data structure due to having to unpack as
-you go, but it doesn't require a full decompress step before any action on the
-data can be taken.
 
 | Attempt                        | Uncompressed | Compressed (Brotli) |
 |---------                       | ------------ | ------------------- |
@@ -547,75 +543,7 @@ lookups on a dictionary this size, despite being O(n). Words generally don't
 share large prefixes due to their length, so most words can be rejected in just
 a couple of char comparisons.
 
-## Lesson 8: Tries Revisited
-
-Another programmer, [Tab Atkins Jr.](https://gist.github.com/tabatkins) also
-took a look at this problem and [used
-tries](https://gist.github.com/tabatkins/c4b4e3c20d1b2663670d07b73f2623e8) to
-compress the Wordle dictionary.
-
-Here, Tab takes an alternate approach to how you can represent a trie. Instead
-of tracking the character and its number of children, they instead use a
-terminating separator which allows the decoder to know when to pop the stack.
-
-Further, they don't do the tree to the full depth of five, but instead stop at
-depth four and just list all two character suffixes. This acts to greatly reduce
-the number of terminating characters needed, which is the biggest space-consumer
-with this method.
-
-In comparison to the representation in Lessons 4-8, it trades off needing to
-track the size of each early node, with adding data to the end of every
-terminating node.
-
-Tab quotes compression numbers on his GitHub gist on the full all words
-dictionary, so we've compared here similarly. He mentions that characters could
-be packed in six bits, and the separators in four -- however, you can pack the
-characters in five bits and the separator in four. The binary sequence `11110`
-represents `30` and hence a decoder can pop whenever a sequence of `1111` is
-found, or otherwise read one more bit to get the letter at that position.
-
-Further, we can apply Huffman coding to the plain-text string instead, since we
-have so many terminating characters, the code dedicates the fewest bits to it.
-Finally, we can do per-position Huffman codes for each letter, artificially
-inserting a lot of terminating characters into each input string so that the
-Huffman code of each position accounts for terminating characters.
-
-Brotli compressed, the Tab Atkins Jr approach is smaller than the Huffman Trie in
-Lesson 7. This makes it optimal for bandwidth conservation purposes, but it ends
-up being quite large in-memory. Attempting to bit-pack or Huffman encode it only
-reduced what Brotli encoding could achieve, and as such they all performed worse
-on bandwidth. They also all performed worse than the Huffman Trie when
-uncompressed making them inferior (\*\*as a result, the numbers quoted below
-don't even include the Huffman tables themselves as it wasn't worth the effort).
-
-This makes the plain-text trie the best way to transmit the Wordle dictionary if
-your server can leverage Brotli compression. It also greatly simplifies the
-decoding process on the other end and there is no bitpacking or Huffman tables
-to decode and leverage.
-
-So why does this perform so well, and why doesn't Huffman coding compete? Brotli
-compression utilizes more than just Huffman coding, it also uses [context
-modelling](https://en.wikipedia.org/wiki/Context_model) and
-[LZ77](https://en.wikipedia.org/wiki/LZ77_and_LZ78) compression. Put simply
-it takes a content-independent approach, and attempts to pull commonly repeating
-patterns from the text and represent them with a smaller representation. Think
-of it like Huffman coding, but it analyzes the text to pick variable-length
-n-grams and aims to optimize the set of n-grams that will produce the smallest
-file.
-
-One potential downside of this representation is that it makes it impossible to
-pull a random word from the trie without decoding it completely, unless you also
-know how many words are in the trie (at which point you can pick a random value
-between 1 and N then seek, counting your total words until you hit N).
-
-| Attempt  | Uncompressed   | Compressed (gzip) | Compressed (Brotli) |
-|--------- | ------   | ------------   | ------------------- |
-| tabatkins trie | 32,112 | 15,808 | 14,545
-| tabatkins trie (Bitpacked) | 19,685 | 18,470 | 18,562 |
-| tabatkins trie (Huffman)\*\* | 16,989 | 16,814 | 16,718 |
-| tabatkins trie (Huffman, Positional)\*\* | 16,845 | 16,408 | 16,489 |
-
-## Lesson 9: Variable Length Dictionaries
+## Lesson 8: Variable Length Dictionaries
 
 [hello wordl](https://hellowordl.net) is a Wordle clone that supports games
 between 2 and 11 letters. Like Wordle they bundle their dictionary as part of
@@ -673,6 +601,103 @@ Huffman Trie Total | 353,615 | 341,817 | 341,292
 Variable Huffman Trie | 359,014 | 317,268 | 295,713
 | | 13.29% | 63.36% | 76.47%
 
+## Lesson 9: Tries Revisited and Terminated.
+
+Another programmer, [Tab Atkins Jr.](https://gist.github.com/tabatkins) also
+took a look at this problem and [used
+tries](https://gist.github.com/tabatkins/c4b4e3c20d1b2663670d07b73f2623e8) to
+compress the Wordle dictionary.
+
+Here, Tab takes an alternate approach to how you can represent a trie. Instead
+of tracking the character and its number of children -- as we have done since
+Lesson 3 -- they instead use a terminating separator which allows the decoder to
+know when to pop the stack.
+
+Further, they don't do the tree to the full depth of five, but instead stop at
+depth four and just list all two character suffixes. This acts to greatly reduce
+the number of terminating characters needed, which is the biggest space-consumer
+with this method.
+
+MOUTH and MOUNT from earlier can be represented as (using | as the terminator):
+
+```
+MOUTHNT|
+```
+
+While adding MOTHS would become:
+
+```
+MOUTHNT|THS|
+```
+
+Tab Atkin's junior performed his benchmarking against the full dictionary set
+(not just the valid words), so we will do the same here. For the set of all
+words (valid words + answers), this representation takes up 32,112 bytes
+uncompressed, compared to 36,817 bytes for the Lesson 3 representation.
+Leveraging the fact all words are the same length allows the terminator-base
+approach to perform very well as it minimizes the number of terminators that
+would otherwise fill up as leaf nodes grow exponentially at each level.
+
+The true magic of this representation comes when Brotli encoded -- consuming a
+mere 14,545 bytes, compared to 17,388 bytes for the smart trie, and 15,577 bytes
+for the Huffman trie. This makes the plain-text trie the best way to transmit
+the Wordle dictionary if your server can leverage Brotli compression.
+
+Attempts to bitpack this trie using the methods from Lesson 7 only made
+post-compression performance worse, while not competing against the Huffman trie
+in uncompressed size (\*\*even when not counting the additional size of the
+Huffman tables).
+
+So why does this perform so well, and why doesn't Huffman coding compete? Brotli
+compression utilizes more than just Huffman coding, it also uses [context
+modelling](https://en.wikipedia.org/wiki/Context_model) and
+[LZ77](https://en.wikipedia.org/wiki/LZ77_and_LZ78) compression.
+
+LZ compression put simply will walk through the file, and look into the past for
+whether it has seen a text fragment before. If it does, instead of writing it
+out again, it writes a distance and a length. The distance is how many
+characters behind it to begin copying, and the length is the number of
+characters to copy.
+
+```
+Adam is Adam -> Adam is (7,4)
+```
+
+With a generous window size, this allows the compression to leverage repetition
+between words that don't share a prefix, such as CRACK, STACK and BLACK. As
+such, the combination of a terminated trie with Brotli compression can be
+thought of as leveraging both prefix repetition (with the trie) and suffix
+repetition (with the Brotli compression).
+
+This explains why bitpacking this structure only makes compression worse
+(suffixes stop looking like repeated patterns in a bitpacked binary form).
+Further it explains why the representation in Lesson 3 compresses worse -- the
+node lengths also break up the patterns present in suffixes.
+
+In fact, this leads to two minor final optimizations -- reverse the trie, and
+extend to depth five.
+
+Given all words are the same length and so short, the overlap of suffixes is
+slightly greater than that of prefixes. As a result, building a trie with all
+the words reversed results in smaller size both uncompressed and compressed
+(31,432 bytes uncompressed and 14,348 bytes Brotli encoded)!
+
+Extending the trie to depth five rather than appending all the two-character
+suffixes increases the uncompressed size to 32,398 bytes, but drops the Brotli
+encoded size to 14,180 bytes!
+
+| Attempt  | Uncompressed   | Compressed (gzip) | Compressed (Brotli) |
+|--------- | ------   | ------------   | ------------------- |
+| Base                                      | 103,779 | 35,968 | 21,020 |
+| Trie (String, Smart)                      | 36,817 | 19,144 | 17,388 |
+| Terminated trie                           | 32,112 | 15,808 | 14,545
+| Terminated trie (Reversed)                | 31,432 (30.3%) | 15,761 | 14,348 (68.3%) |
+| Terminated trie (Depth 5)                 | 36,568 | 16,203 | 14,569 |
+| Terminated trie (Depth 5, Reversed)       | 32,398 (31.2%) | 15,732 | 14,180\* (67.5%) |
+| Terminated trie (Bitpacked)               | 19,685 | 18,470 | 18,562 |
+| Terminated trie (Huffman)\*\*             | 16,989 | 16,814 | 16,718 |
+| Terminated trie (Huffman, Positional)\*\* | 16,845 | 16,408 | 16,489 |
+
 ## Did We Succeed?
 
 Yes.
@@ -691,10 +716,18 @@ The Huffman Coded Bitpacked Smart Trie achieves all of our goals handily,
 achieving a 10%-25% over-the-wire saving, while also having a substantially
 smaller memory footprint.
 
+The Reverse Terminated Trie however takes the win in terms of smallest
+compressed size, being the optimal solution if bandwidth is the concern. It also
+has the benefit of not requiring bit fiddling to decode. With the addition of
+the word count to the start of the file it can support random access to words
+without full decoding, making it functionally compatible with the Huffman Coded
+Bitpack Smart Trie.
+
 Overall, this is an interesting investigation into the various ways one can pack
 data, and goes to show that modern techniques like Brotli are incredibly
-effective and you need to have a lot of constraints on your data, and some
-complex custom implementations if you want to hope to beat them.
+effective. Even if you have a lot of constraints on your data, and some
+complex custom implementations it can be impossible to beat them without
+effectively reimplementing their approach yourself.
 
 ## Results
 
@@ -722,17 +755,21 @@ complex custom implementations if you want to hope to beat them.
 
 #### All Words
 
-| Attempt                        |  Lesson  | Uncompressed   | Compressed (Brotli) |
-|---------                       | ------   | ------------   | ------------------- |
-| Base                           | Preface  | 103,779        | 21,020              |
-| Huffman Trie (Bitpacked, Smart)| Seven    | 15,599 (15.0%) | 15,577 (74.1%)      |
+| Attempt                         | Uncompressed   | Compressed (gzip) | Compressed (Brotli) |
+|---------                        | ------   | ------------   | ------------------- |
+| Base                            | 103,779        | 35,968 | 21,020              |
+| Huffman Trie (Bitpacked, Smart) | 15,599 (15.0%) | 15,613\* | 15,577 (74.1%)      |
+| Trie (String, Smart)                    | 36,817 | 19,144 | 17,388 |
+| Terminated trie                           | 32,112 | 15,808 | 14,545
+| Terminated trie (Reversed)                | 31,432 (30.3%) | 15,761 | 14,348 (68.3%) |
+| Terminated trie (Depth 5)                 | 36,568 | 16,203 | 14,569 |
+| Terminated trie (Depth 5, Reversed)       | 32,398 (31.2%) | 15,732 | 14,180\* (67.5%) |
+| Terminated trie (Bitpacked)     | 19,685 | 18,470 | 18,562 |
+| Terminated trie (Huffman)\*\*   | 16,989 | 16,814 | 16,718 |
+| Terminated trie (Huffman, Positional)\*\* | 16,845 | 16,408 | 16,489 |
 
-| Attempt  | Uncompressed   | Compressed (gzip) | Compressed (Brotli) |
-|--------- | ------   | ------------   | ------------------- |
-| tabatkins trie | 32,112 | 15,808 | 14,545\*\*
-| tabatkins trie (Bitpacked) | 19,685 | 18,470 | 18,562 |
-| tabatkins trie (Huffman)\*\* | 16,989 | 16,814 | 16,718 |
-| tabatkins trie (Huffman, Positional)\*\* | 16,845 | 16,408 | 16,489 |
+\*\* Didn't include size of Huffman tables, which would make these perform even
+worse.
 
 #### HelloWordl Dictionary
 
